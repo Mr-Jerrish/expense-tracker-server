@@ -9,7 +9,11 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      " https://expense-tracker-client-five-ashy.vercel.app",
+      "https://www.smart-expense-ai.com",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   }),
