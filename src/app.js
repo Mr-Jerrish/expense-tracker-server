@@ -13,6 +13,7 @@ app.use(
       "http://localhost:5173",
       "https://expensepilot-ai.vercel.app",
       "https://expense-tracker-client-five-ashy.vercel.app",
+      "https://expense-tracker-api-ml7u.onrender.com",
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
