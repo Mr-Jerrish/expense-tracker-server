@@ -189,12 +189,14 @@ const openai = new OpenAI({
 // };
 
 export const askAIService = async ({ query, userId, financialYear }) => {
-  // 🔥 AI Understanding
+  // ✅ AI Understanding
   const completion = await openai.chat.completions.create({
     model: "openrouter/free",
+
     messages: [
       {
         role: "system",
+
         content: `
 You are an Expense Tracker AI.
 
@@ -241,6 +243,7 @@ Response:
 }
 `,
       },
+
       {
         role: "user",
         content: query,
@@ -248,19 +251,21 @@ Response:
     ],
   });
 
-  // 🔥 AI Text
+  // ✅ AI Response Text
   const aiText = completion.choices[0].message.content;
 
+  // ✅ Clean AI JSON
   const cleaned = aiText
     .replace(/```json/g, "")
     .replace(/```/g, "")
     .trim();
 
+  // ✅ Convert JSON String → Object
   const aiData = JSON.parse(cleaned);
 
   const { type, summaryType, month } = aiData;
 
-  // 🔥 Month Map
+  // ✅ Month Mapping
   const monthMap = {
     january: 1,
     february: 2,
@@ -278,23 +283,27 @@ Response:
 
   const monthNumber = monthMap[month?.toLowerCase()];
 
-  // 🔥 Select Model
+  // ✅ Dynamic Model
   const Model = type === "income" ? Income : Expense;
 
-  // 🔥 Aggregate
+  // ✅ Match Condition
+  const matchStage = {
+    userId: new mongoose.Types.ObjectId(userId),
+
+    financialYear,
+  };
+
+  // ✅ Add Month Filter
+  if (summaryType === "monthly" && monthNumber) {
+    matchStage.$expr = {
+      $eq: [{ $month: "$date" }, monthNumber],
+    };
+  }
+
+  // ✅ Aggregate Query
   const result = await Model.aggregate([
     {
-      $match: {
-        userId: new mongoose.Types.ObjectId(userId),
-
-        financialYear,
-
-        ...(summaryType === "monthly" && {
-          $expr: {
-            $eq: [{ $month: "$date" }, monthNumber],
-          },
-        }),
-      },
+      $match: matchStage,
     },
 
     {
@@ -308,37 +317,20 @@ Response:
     },
   ]);
 
-  const totalAmount = result[0]?.totalAmount || 0;
+  // ✅ Final Amount
+  const totalAmount = result[0]?.totalAmount ?? 0;
 
-  // 🔥 Yearly Response
-  if (type === "income" && summaryType === "yearly") {
-    return {
-      yearlyIncome: totalAmount,
-    };
-  }
+  // ✅ Dynamic Response Key
+  const responseKey = `${summaryType}${type
+    .charAt(0)
+    .toUpperCase()}${type.slice(1)}`;
 
-  if (type === "expense" && summaryType === "yearly") {
-    return {
-      yearlyExpense: totalAmount,
-    };
-  }
-
-  // 🔥 Monthly Response
-  if (type === "income" && summaryType === "monthly") {
-    return {
-      month,
-      monthlyIncome: totalAmount,
-    };
-  }
-
-  if (type === "expense" && summaryType === "monthly") {
-    return {
-      month,
-      monthlyExpense: totalAmount,
-    };
-  }
-
+  // ✅ Final Response
   return {
-    totalAmount,
+    ...(summaryType === "monthly" && {
+      month,
+    }),
+
+    [responseKey]: totalAmount,
   };
 };
