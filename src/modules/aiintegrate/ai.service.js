@@ -93,6 +93,101 @@ const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
 });
 
+// export const askAIService = async ({ query, userId, financialYear }) => {
+//   // 🔥 AI Understanding
+//   const completion = await openai.chat.completions.create({
+//     model: "openrouter/free",
+//     messages: [
+//       {
+//         role: "system",
+//         content: `
+// You are an Expense Tracker AI.
+
+// Return ONLY JSON.
+
+// Examples:
+
+// User:
+// show my yearly income
+
+// Response:
+// {
+//   "type":"income",
+//   "summaryType":"yearly"
+// }
+
+// User:
+// show my yearly expense
+
+// Response:
+// {
+//   "type":"expense",
+//   "summaryType":"yearly"
+// }
+// `,
+//       },
+//       {
+//         role: "user",
+//         content: query,
+//       },
+//     ],
+//   });
+
+//   // 🔥 AI Text
+//   const aiText = completion.choices[0].message.content;
+
+//   const cleaned = aiText
+//     .replace(/```json/g, "")
+//     .replace(/```/g, "")
+//     .trim();
+
+//   const aiData = JSON.parse(cleaned);
+
+//   const { type, summaryType } = aiData;
+
+//   // 🔥 Select Model
+//   const Model = type === "income" ? Income : Expense;
+
+//   // 🔥 Aggregate
+//   const result = await Model.aggregate([
+//     {
+//       $match: {
+//         userId: new mongoose.Types.ObjectId(userId),
+//         financialYear,
+//       },
+//     },
+
+//     {
+//       $group: {
+//         _id: null,
+
+//         totalAmount: {
+//           $sum: "$amount",
+//         },
+//       },
+//     },
+//   ]);
+
+//   const totalAmount = result[0]?.totalAmount || 0;
+
+//   // 🔥 Final Response
+//   if (type === "income" && summaryType === "yearly") {
+//     return {
+//       yearlyIncome: totalAmount,
+//     };
+//   }
+
+//   if (type === "expense" && summaryType === "yearly") {
+//     return {
+//       yearlyExpense: totalAmount,
+//     };
+//   }
+
+//   return {
+//     totalAmount,
+//   };
+// };
+
 export const askAIService = async ({ query, userId, financialYear }) => {
   // 🔥 AI Understanding
   const completion = await openai.chat.completions.create({
@@ -124,6 +219,26 @@ Response:
   "type":"expense",
   "summaryType":"yearly"
 }
+
+User:
+show my march income
+
+Response:
+{
+  "type":"income",
+  "summaryType":"monthly",
+  "month":"march"
+}
+
+User:
+show my april expense
+
+Response:
+{
+  "type":"expense",
+  "summaryType":"monthly",
+  "month":"april"
+}
 `,
       },
       {
@@ -143,7 +258,25 @@ Response:
 
   const aiData = JSON.parse(cleaned);
 
-  const { type, summaryType } = aiData;
+  const { type, summaryType, month } = aiData;
+
+  // 🔥 Month Map
+  const monthMap = {
+    january: 1,
+    february: 2,
+    march: 3,
+    april: 4,
+    may: 5,
+    june: 6,
+    july: 7,
+    august: 8,
+    september: 9,
+    october: 10,
+    november: 11,
+    december: 12,
+  };
+
+  const monthNumber = monthMap[month?.toLowerCase()];
 
   // 🔥 Select Model
   const Model = type === "income" ? Income : Expense;
@@ -155,6 +288,12 @@ Response:
         userId: new mongoose.Types.ObjectId(userId),
 
         financialYear,
+
+        ...(summaryType === "monthly" && {
+          $expr: {
+            $eq: [{ $month: "$date" }, monthNumber],
+          },
+        }),
       },
     },
 
@@ -171,7 +310,7 @@ Response:
 
   const totalAmount = result[0]?.totalAmount || 0;
 
-  // 🔥 Final Response
+  // 🔥 Yearly Response
   if (type === "income" && summaryType === "yearly") {
     return {
       yearlyIncome: totalAmount,
@@ -181,6 +320,21 @@ Response:
   if (type === "expense" && summaryType === "yearly") {
     return {
       yearlyExpense: totalAmount,
+    };
+  }
+
+  // 🔥 Monthly Response
+  if (type === "income" && summaryType === "monthly") {
+    return {
+      month,
+      monthlyIncome: totalAmount,
+    };
+  }
+
+  if (type === "expense" && summaryType === "monthly") {
+    return {
+      month,
+      monthlyExpense: totalAmount,
     };
   }
 
